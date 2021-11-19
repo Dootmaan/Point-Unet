@@ -5,6 +5,19 @@ import torch.nn as nn
 
 from torch_points_kernels import knn
 
+class PointUnet(nn.Module):
+    '''
+    Not implemented
+    '''
+    def __init__(self,
+        in_channels,
+        out_channels,
+    ):
+        super(PointUnet, self).__init__()
+    
+    def forward(self,x):
+        return x
+
 class SharedMLP(nn.Module):
     def __init__(
         self,

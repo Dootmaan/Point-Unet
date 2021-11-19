@@ -34,5 +34,5 @@ A simple testing function is integrated in this file and can be used as an insig
 ## Warnings
 
 - This project is still under construction and may contain some errors.
-
+- Point-Unet is not implemented currently and this repo currently only uses RandLA
 - This implementation is not exactly the same as what is described in the paper.
