@@ -6,17 +6,119 @@ import torch.nn as nn
 from torch_points_kernels import knn
 
 class PointUnet(nn.Module):
-    '''
-    Not implemented
-    '''
-    def __init__(self,
-        in_channels,
-        out_channels,
-    ):
+    def __init__(self, d_in, num_classes, num_neighbors=16, decimation=4, device=torch.device('cpu')):
         super(PointUnet, self).__init__()
-    
-    def forward(self,x):
-        return x
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.num_neighbors = num_neighbors
+        self.decimation = decimation
+
+        self.fc_start = nn.Linear(d_in, 8)
+        self.bn_start = nn.Sequential(
+            nn.BatchNorm2d(8, eps=1e-6, momentum=0.99),
+            nn.LeakyReLU(0.2)
+        )
+
+        # encoding layers
+        self.encoder = nn.ModuleList([
+            LocalFeatureAggregation(8, 16, num_neighbors, device),
+            LocalFeatureAggregation(32, 64, num_neighbors, device),
+            LocalFeatureAggregation(128, 128, num_neighbors, device),
+            LocalFeatureAggregation(256, 256, num_neighbors, device)
+        ])
+
+        self.mlp = SharedMLP(512, 512, activation_fn=nn.ReLU())
+
+        # decoding layers
+        decoder_kwargs = dict(
+            transpose=True,
+            bn=True,
+            activation_fn=nn.ReLU()
+        )
+        self.decoder = nn.ModuleList([
+            SharedMLP(1024, 256, **decoder_kwargs),
+            SharedMLP(512, 128, **decoder_kwargs),
+            SharedMLP(256, 32, **decoder_kwargs),
+            SharedMLP(64, 8, **decoder_kwargs)
+        ])
+
+        # final semantic prediction
+        self.fc_end = nn.Sequential(
+            SharedMLP(8, 64, bn=True, activation_fn=nn.ReLU()),
+            SharedMLP(64, 32, bn=True, activation_fn=nn.ReLU()),
+            nn.Dropout(),
+            SharedMLP(32, num_classes)
+        )
+        self.device = device
+
+        self = self.to(device)
+
+    def forward(self, input):
+        r"""
+            Forward pass
+            Parameters
+            ----------
+            input: torch.Tensor, shape (B, N, d_in)
+                input points
+            Returns
+            -------
+            torch.Tensor, shape (B, num_classes, N)
+                segmentation scores for each point
+        """
+        N = input.size(1)
+        d = self.decimation
+
+        coords = input[...,:3].clone().cpu()
+        x = self.fc_start(input).transpose(-2,-1).unsqueeze(-1)
+        x = self.bn_start(x) # shape (B, d, N, 1)
+
+        decimation_ratio = 1
+
+        # <<<<<<<<<< ENCODER
+        x_stack = []
+
+        permutation = torch.randperm(N)
+        coords = coords[:,permutation]
+        x = x[:,:,permutation]
+
+        for lfa in self.encoder:
+            # at iteration i, x.shape = (B, N//(d**i), d_in)
+            x = lfa(coords[:,:N//decimation_ratio], x)
+            x_stack.append(x.clone())
+            decimation_ratio *= d
+            x = x[:,:,:N//decimation_ratio]
+
+
+        # # >>>>>>>>>> ENCODER
+
+        x = self.mlp(x)
+
+        # <<<<<<<<<< DECODER
+        for mlp in self.decoder:
+            neighbors, _ = knn(
+                coords[:,:N//decimation_ratio].cpu().contiguous(), # original set
+                coords[:,:d*N//decimation_ratio].cpu().contiguous(), # upsampled set
+                1
+            ) # shape (B, N, 1)
+            neighbors = neighbors.to(self.device)
+
+            extended_neighbors = neighbors.unsqueeze(1).expand(-1, x.size(1), -1, 1)
+
+            x_neighbors = torch.gather(x, -2, extended_neighbors)
+
+            x = torch.cat((x_neighbors, x_stack.pop()), dim=1)
+
+            x = mlp(x)
+
+            decimation_ratio //= d
+
+        # >>>>>>>>>> DECODER
+        # inverse permutation
+        x = x[:,:,torch.argsort(permutation)]
+
+        scores = self.fc_end(x)
+
+        return scores.squeeze(-1)
+
 
 class SharedMLP(nn.Module):
     def __init__(
@@ -108,8 +210,6 @@ class LocalSpatialEncoding(nn.Module):
             features.expand(B, -1, N, K)
         ), dim=-3)
 
-
-
 class AttentivePooling(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(AttentivePooling, self).__init__()
@@ -137,8 +237,6 @@ class AttentivePooling(nn.Module):
         features = torch.sum(scores * x, dim=-1, keepdim=True) # shape (B, d_in, N, 1)
 
         return self.mlp(features)
-
-
 
 class LocalFeatureAggregation(nn.Module):
     def __init__(self, d_in, d_out, num_neighbors, device):

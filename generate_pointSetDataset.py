@@ -5,7 +5,8 @@ from config import config
 from dataset.BraTSDataset3D import BraTSDataset3D
 from model.SaliencyAttentionNet import SaliencyAttentionNet
 
-density=0.5  # the higher the denser. 1 maximum.
+density=1  # the higher the denser. 1 maximum.
+dense_threshold=0.49
 
 batch_size = 1
 model_path = '/newdata/why/Saved_models'
@@ -20,17 +21,17 @@ def contextAwareSampling(image, label, attention_map):
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
             for k in range(image.shape[2]):
-                # if attention_map[i, j, k] > dense_threshold:
-                #     pointSet.append([i, j, k, image[i, j, k]])
-                #     pointSet_label.append([i, j, k, label[i, j, k]])
-                # else:
-                #     if random.random() < random_sample_prob:
-                #         pointSet.append([i, j, k, image[i, j, k]])
-                #         pointSet_label.append([i, j, k, label[i, j, k]])
-
-                if random.random() < density* attention_map[i, j, k]:
+                if attention_map[i, j, k] > dense_threshold:
                     pointSet.append([i, j, k, image[i, j, k]])
                     pointSet_label.append(label[i, j, k])
+                else:
+                    if random.random() < density* attention_map[i, j, k]:
+                        pointSet.append([i, j, k, image[i, j, k]])
+                        pointSet_label.append(label[i, j, k])
+
+                # if random.random() < density* attention_map[i, j, k]:
+                #     pointSet.append([i, j, k, image[i, j, k]])
+                #     pointSet_label.append(label[i, j, k])
 
     return np.array(pointSet), np.array(pointSet_label)
 

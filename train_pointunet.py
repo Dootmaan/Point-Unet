@@ -1,12 +1,13 @@
 from model.PointUnet import RandLANet
 from dataset.PCDataset3D import PCDataset3D
 import torch as pt
+import bitsandbytes as bnb
 import numpy as np
 import cv2
 from loss.DiceLoss import BinaryDiceLoss
 from config import config
 
-lr=0.0001
+lr=0.000000001
 d_in=4
 epoch=80
 batch_size=1
@@ -18,9 +19,9 @@ model_path='/newdata/why/Saved_models'
 trainset=PCDataset3D('/newdata/why/BraTS20/',mode='train',augment=False)
 testset=PCDataset3D('/newdata/why/BraTS20/',mode='test')
 
-train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=True,drop_last=True)
+train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=False,drop_last=True)
 # val_dataset=pt.utils.data.DataLoader(valset,batch_size=1,shuffle=True,drop_last=True)
-test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_last=True)
+test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=False,drop_last=True)
 
 # train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=True,drop_last=True)
 # test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_last=True)
@@ -29,14 +30,14 @@ test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_las
 # train_dataset=[]
 # val_dataset=[]
 device = pt.device('cuda:0' if pt.cuda.is_available() else 'cpu')
-model=RandLANet(d_in=d_in,num_classes=2,device=device)
-# model.load_state_dict(pt.load(model_path+'/DSRL/PointUNet_3D_BraTS_patch-free48_bs1_best.pt',map_location = 'cpu'))
+model=RandLANet(d_in=d_in,num_classes=2,device=device).to(device)
+# model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
 
 lossfunc_sr=pt.nn.MSELoss()
 lossfunc_seg=pt.nn.CrossEntropyLoss()
 # lossfunc_dice=BinaryDiceLoss()
 # lossfunc_fa=FALoss3D()
-optimizer = pt.optim.Adam(model.parameters(), lr=lr)
+optimizer = bnb.optim.Adam8bit(model.parameters(), lr=lr)
 # scheduler = pt.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
 scheduler=pt.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',patience=10)
 
@@ -149,7 +150,7 @@ def TestModel():
 
             finalMask[int(coord[0]),int(coord[1]),int(coord[2])]=pred
 
-        finalMask=dilate3d(finalMask)
+        # finalMask=dilate3d(finalMask)
         cv2.imwrite('finalMask.png',finalMask[64,:,:]*255)
         # for a in range(finalMask.shape[0]):
         #     for b in range(finalMask.shape[1]):
@@ -233,8 +234,8 @@ for x in range(epoch):
     scheduler.step(dice)
     if dice>best_dice:
         best_dice=dice
-        print('New best dice! Model saved to',model_path+'/DSRL/PointUNet_3D_BraTS_patch-free48_bs'+str(batch_size)+'_best.pt')
-        pt.save(model.state_dict(), model_path+'/DSRL/PointUNet_3D_BraTS_patch-free48_bs'+str(batch_size)+'_best.pt')
+        print('New best dice! Model saved to',model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs'+str(batch_size)+'_best.pt')
+        pt.save(model.state_dict(), model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs'+str(batch_size)+'_best.pt')
     # print('===TEST===>')
     # TestModel() 
 # print('Fold',fold,'best', best_dice)

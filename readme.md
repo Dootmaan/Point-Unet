@@ -1,5 +1,19 @@
 # Point-Unet 
 
+## Update 2021/11/23
+
+Introduce Adam8bit for optmizer. More sampling points available now. please install bitsandbytes according to your cuda toolkit version before using.
+
+```
+pip install bitsandbytes-cudaXXX
+```
+
+For me i use CUDA 11.1 so the command should be 'pip install bitsandbytes-cuda111'
+
+**Please also note that maybe you have to install torch-points-kernels for yourself, since the library is compiled on my machine and may cause errors if you directly run the code. Remember to remove the torch_points_kernels folder in this repo after you installed the library.**
+
+---
+
 This is an unofficial implementation of the MICCAI 2021 paper *Point-Unet: A Context-Aware Point-Based Neural Network for Volumetric Segmentation*
 
 The authors claim that they will provide their code in late November, so this repo will then be depreciated. I am currently also working on a similar field of this paper and want to compare our method with Point-Unet, so I implemented the method by myself to analyze the result early. 
