@@ -2,7 +2,7 @@
 
 ## Update 2021/11/23
 
-Introduce Adam8bit for optmizer. More sampling points available now. please install bitsandbytes according to your cuda toolkit version before using.
+Introduce Adam8bit for optmizer. More sampling points available now. please install bitsandbytes according to your cuda toolkit version before using. Now you must use Python3.6+ to run the code.
 
 ```
 pip install bitsandbytes-cudaXXX
