@@ -3,7 +3,7 @@ import glob
 import SimpleITK as sitk
 import torch.utils.data
 import os
-from scipy import ndimage
+# from scipy import ndimage
 import numpy as np
 import cv2
 import random
@@ -30,13 +30,16 @@ class PCDataset3D(torch.utils.data.Dataset):
         if mode=='train':
             images=sorted(glob.glob(os.path.join(path, "PCdataset/*_Training_input.npy")))
             labels=sorted(glob.glob(os.path.join(path, "PCdataset/*_Training_label.npy")))
+            originLabels=sorted(glob.glob(os.path.join(path, "PCdataset/*_Training_originLabel.npy")))
             print("train:",len(images), "folder:",path)
             for i in range(len(images)):
                 print('Adding train sample:',images[i])
                 image_arr=np.load(images[i])
                 lesion_arr=np.load(labels[i])
+                originlabel_arr=np.load(originLabels[i])
                 self.data.append(image_arr)
                 self.label.append(lesion_arr)
+                self.originLable.append(originlabel_arr)
             
         # elif mode=='val':
         #     print("val:", n_val, "folder:",path)
@@ -83,11 +86,8 @@ class PCDataset3D(torch.utils.data.Dataset):
             print("Index exceeds length!")
             return None
         
-        if self.mode=='test':
-            return self.data[index],self.label[index],self.originLable[index]
-        else:
-            return self.data[index],self.label[index]
-
+        return self.data[index],self.label[index],self.originLable[index]
+        
 if __name__=='__main__':
     dataset=PCDataset3D('/newdata/why/BraTS20/',mode='train')
     test=dataset.__getitem__(0)

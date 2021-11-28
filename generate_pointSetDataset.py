@@ -73,6 +73,8 @@ for i, data in enumerate(train_dataset):
     np.save(
         '/newdata/why/BraTS20/PCdataset/BraTS20_{:03d}_Training_input.npy'.
         format(i), pointset)
+    np.save('/newdata/why/BraTS20/PCdataset/BraTS20_{:03d}_Training_originLabel.npy'.
+        format(i), labels_seg.squeeze(0).squeeze(0).cpu().data.numpy())
     np.save(
         '/newdata/why/BraTS20/PCdataset/BraTS20_{:03d}_Training_label.npy'.
         format(i), gt)

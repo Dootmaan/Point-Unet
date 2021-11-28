@@ -1,5 +1,9 @@
 # Point-Unet 
 
+## Update 2021/11/28
+
+It's weird that RandLA-Net can only achieve ~0.6 dice in the testset, which is inconsistent with the Point-Unet paper. I also tried to cut down the number of points to a half and uses the original Adam optimized and it is still around 0.6 dice. Please send me a pull request if you find any bugs in my code.
+
 ## Update 2021/11/23
 
 Introduce Adam8bit for optmizer. More sampling points available now. please install bitsandbytes according to your cuda toolkit version before using. Now you must use Python3.6+ to run the code.
