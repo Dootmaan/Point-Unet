@@ -1,5 +1,9 @@
 # Point-Unet 
 
+## Update 2021/12/1
+
+With Adam8bit, the model finally reaches a 0.66 dice. However, for a task using T2 as input and WT as label, the saliency attention network can already achieve a 0.815 DSC. The official code is still unavailable so i'll keep working on this project.
+
 ## Update 2021/11/28
 
 It's weird that RandLA-Net can only achieve ~0.6 dice in the testset, which is inconsistent with the Point-Unet paper. I also tried to cut down the number of points to a half and uses the original Adam optimized and it is still around 0.6 dice. Please send me a pull request if you find any bugs in my code.
@@ -52,5 +56,5 @@ A simple testing function is integrated in this file and can be used as an insig
 ## Warnings
 
 - This project is still under construction and may contain some errors.
-- Point-Unet is not implemented currently and this repo currently only uses RandLA
-- This implementation is not exactly the same as what is described in the paper.
+- Point-Unet is not implemented currently and this repo currently only uses RandLA. However these two networks are very similar and RandLA also has the skip connection structure 
+- This implementation is not exactly the same as what is described in the paper (such as the channel numbers).
