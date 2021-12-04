@@ -1,5 +1,11 @@
 # Point-Unet 
 
+## Update 2021/12/4
+
+The official code is realeased today. Please check [here](https://github.com/VinAIResearch/Point-Unet) to learn more. The official code is based on TensorFlow and I will modify this PyTorch implementation accordingly. Currently this repo is **depreciated** because of the poor performance. Please use the official code for your project. 
+
+I will update the code after achieve a similar result with PyTorch.
+ 
 ## Update 2021/12/1
 
 With Adam8bit, the model finally reaches a 0.66 dice. However, for a task using T2 as input and WT as label, the saliency attention network can already achieve a 0.815 DSC. The official code is still unavailable so i'll keep working on this project.
