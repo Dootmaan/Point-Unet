@@ -1,10 +1,22 @@
 # Point-Unet 
 
+This implementation conducts WT segmentation with T2 input by default, which is not the same of the original paper's experiment. A new branch that conducts the same experiment of the paper will be updated soon.
+
+## Update 2021/12/6
+
+I have read the official code and find the primary difference between my implementation and the original ones is the sampling methods. It turns out that the Context-Aware Sampling will sample every lesion voxel into points and add up other random sampling points to get a total number of 365000 points. I have already changed my code to such sampling method and achieved a 0.81 DSC rn. The experiment is still running so the final result may be even better.
+
+However by doing so it is just impossible to make it trainable on a 11G GTX 1080Ti, so I changed to use an Tesla A4000 instead. The memory cost during training is 15440M, which indicates that **you have to use a grahical cards with >=16G memory** instead. Adam8Bit is abandoned now since it doesnt help too much under this circumstances.
+
+Besides there are also some other changes:
+- i add a erosion step after the infaltion to eliminate some segmentation noise.
+- the pretrained weights of Point-Unet is uploaded to [here](https://drive.google.com/file/d/1Ur-He3A7UwxqyBnthVTsIoyjUXPaH-PH/view?usp=sharing)
+
 ## Update 2021/12/4
 
 The official code is realeased today. Please check [here](https://github.com/VinAIResearch/Point-Unet) to learn more. The official code is based on TensorFlow and I will modify this PyTorch implementation accordingly. Currently this repo is **depreciated** because of the poor performance. Please use the official code for your project. 
 
-I will update the code after achieve a similar result with PyTorch.
+I will update the code after achieving a similar result with PyTorch.
  
 ## Update 2021/12/1
 
@@ -62,5 +74,5 @@ A simple testing function is integrated in this file and can be used as an insig
 ## Warnings
 
 - This project is still under construction and may contain some errors.
-- Point-Unet is not implemented currently and this repo currently only uses RandLA. However these two networks are very similar and RandLA also has the skip connection structure 
+- This implementation conducts WT segmentation with T2 input by default, which is not the same of the original paper's experiment. If you want to conduct the same experiment as the paper, you have to modify the BraTSDataset3D.py to read other modalities' image and change the input channel of Saliency Attention Network to 4. You also have to generate the points for all these modalities and eventually change the output channel of Point-Unet to 4. I will add a branch of this after finish my current work.
 - This implementation is not exactly the same as what is described in the paper (such as the channel numbers).

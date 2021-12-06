@@ -5,8 +5,8 @@ from config import config
 from dataset.BraTSDataset3D import BraTSDataset3D
 from model.SaliencyAttentionNet import SaliencyAttentionNet
 
-density=1  # the higher the denser. 1 maximum.
-dense_threshold=0.49
+total_num_points=365000
+threshold=0.5
 
 batch_size = 1
 model_path = '/newdata/why/Saved_models'
@@ -15,25 +15,58 @@ size = crop_size[2] * 2  #用于最后cv2显示
 img_size = config.input_img_size
 
 
-def contextAwareSampling(image, label, attention_map):
+def contextAwareSamplingTrain(image, label):
     pointSet = list()
     pointSet_label = list()
+
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
             for k in range(image.shape[2]):
-                if attention_map[i, j, k] > dense_threshold:
+                if not image[i, j, k]==0:
                     pointSet.append([i, j, k, image[i, j, k]])
-                    pointSet_label.append(label[i, j, k])
-                else:
-                    if random.random() < density* attention_map[i, j, k]:
-                        pointSet.append([i, j, k, image[i, j, k]])
-                        pointSet_label.append(label[i, j, k])
+                    pointSet_label.append(label[i,j,k])
 
-                # if random.random() < density* attention_map[i, j, k]:
-                #     pointSet.append([i, j, k, image[i, j, k]])
-                #     pointSet_label.append(label[i, j, k])
+    pointSet=np.array(pointSet)
+    pointSet_label=np.array(pointSet_label)
 
-    return np.array(pointSet), np.array(pointSet_label)
+    none_tumor = list(np.where(pointSet_label == 0)[0])
+    tumor = list(np.where(pointSet_label > 0)[0])
+    queried_idx = tumor + random.sample(none_tumor, k=total_num_points - len(tumor))
+    queried_idx = np.array(queried_idx)
+    random.shuffle(queried_idx)
+
+    queried_points=pointSet[queried_idx,...]
+    queried_points[:,0:3]/=image.shape
+    queried_labels=pointSet_label[queried_idx,...]
+
+    return queried_points, queried_labels
+
+
+def contextAwareSamplingTest(image, attention_map):
+    pointSet = list()
+    pointSet_label = list()
+
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            for k in range(image.shape[2]):
+                if not image[i, j, k]==0:
+                    pointSet.append([i, j, k, image[i, j, k]])
+                    pointSet_label.append(attention_map[i,j,k])
+
+    pointSet=np.array(pointSet)
+    pointSet_label=np.array(pointSet_label)
+
+    none_tumor = list(np.where(pointSet_label <threshold)[0])
+    tumor = list(np.where(pointSet_label >= threshold)[0])
+    queried_idx = tumor + random.sample(none_tumor, k=total_num_points - len(tumor))
+    queried_idx = np.array(queried_idx)
+    random.shuffle(queried_idx)
+
+    queried_points=pointSet[queried_idx,...]
+    queried_points[:,0:3]/=image.shape
+    queried_labels=pointSet_label[queried_idx,...]
+
+    return queried_points, queried_labels
 
 
 trainset = BraTSDataset3D('/newdata/why/BraTS20', mode='train',augment=False)
@@ -60,16 +93,15 @@ model.eval()
 print('generating training samples')
 for i, data in enumerate(train_dataset):
     (_, labels_seg, inputs) = data
-    inputs = pt.autograd.Variable(inputs).type(
-        pt.FloatTensor).cuda().unsqueeze(1)
-    labels_seg = pt.autograd.Variable(labels_seg).type(
-        pt.FloatTensor).cuda().unsqueeze(1)
-    with pt.no_grad():
-        outputs_seg = model(inputs)
+    # inputs = pt.autograd.Variable(inputs).type(
+    #     pt.FloatTensor).cuda().unsqueeze(1)
+    # labels_seg = pt.autograd.Variable(labels_seg).type(
+    #     pt.FloatTensor).cuda().unsqueeze(1)
+    # with pt.no_grad():
+    #     outputs_seg = model(inputs)
 
-    pointset, gt = contextAwareSampling(inputs.squeeze(0).squeeze(0).cpu().data.numpy(),
-                                        labels_seg.squeeze(0).squeeze(0).cpu().data.numpy(),
-                                        outputs_seg.squeeze(0).squeeze(0).cpu().data.numpy())
+    pointset, gt = contextAwareSamplingTrain(inputs.squeeze(0).squeeze(0).cpu().data.numpy(),
+                                        labels_seg.squeeze(0).squeeze(0).cpu().data.numpy())
     np.save(
         '/newdata/why/BraTS20/PCdataset/BraTS20_{:03d}_Training_input.npy'.
         format(i), pointset)
@@ -90,8 +122,7 @@ for i, data in enumerate(test_dataset):
         outputs_seg = model(inputs)
 
 
-    pointset, gt = contextAwareSampling(inputs.squeeze(0).squeeze(0).cpu().data.numpy(),
-                                        labels_seg.squeeze(0).squeeze(0).cpu().data.numpy(),
+    pointset, gt = contextAwareSamplingTest(inputs.squeeze(0).squeeze(0).cpu().data.numpy(),
                                         outputs_seg.squeeze(0).squeeze(0).cpu().data.numpy())
     np.save(
         '/newdata/why/BraTS20/PCdataset/BraTS20_{:03d}_Testing_input.npy'.

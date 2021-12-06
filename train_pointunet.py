@@ -116,6 +116,19 @@ def dilate3d(image,kernel=np.ones((3, 3), np.uint8)):
     final_img[final_img>1]=1
     return final_img
 
+def erode3d(image,kernel=np.ones((3, 3), np.uint8)):
+    z_image=image.copy()
+    x_image=image.copy()
+    y_image=image.copy()
+    for z in range(image.shape[0]):
+        z_image[z,:,:]=cv2.erode(image[z,:,:],kernel,1)
+    for x in range(image.shape[1]):
+        x_image[:,x,:]=cv2.erode(image[:,x,:],kernel,1)
+    for y in range(image.shape[2]):
+        y_image[:,:,y]=cv2.erode(image[:,:,y],kernel,1)
+    final_img=z_image*x_image*y_image
+    final_img[final_img!=0]=1
+    return final_img
 
 def TestModel():
     model.eval()
@@ -155,6 +168,7 @@ def TestModel():
             finalMask[int(coord[0]),int(coord[1]),int(coord[2])]=pred
 
         finalMask=dilate3d(finalMask)
+        finalMask=erode3d(finalMask)
         cv2.imwrite('finalMask.png',finalMask[64,:,:]*255)
         # for a in range(finalMask.shape[0]):
         #     for b in range(finalMask.shape[1]):
