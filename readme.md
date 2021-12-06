@@ -2,7 +2,7 @@
 
 This implementation conducts WT segmentation with T2 input by default, which is not the same of the original paper's experiment. A new branch that conducts the same experiment of the paper will be updated soon.
 
-*This repo is basically built from scratch by myself and is only used for my personal experiment so it may cannot be directly used unless some key factors such as the dataset path is correctly configured. After i finish my current work i will try to sort out the code and make it easier to use. You are also welcome for proposing a pull request.* 
+*This repo is basically built from scratch by myself and is only used for my personal experiment so it may cannot be directly used unless some key factors such as the dataset path are correctly configured. After i finishing my current work i will try to sort out the code and make it easier to use. You are also welcome for proposing a pull request.* 
 
 The update log below is very important and you are encouraged to read them before using the code.
 
