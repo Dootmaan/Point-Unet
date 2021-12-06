@@ -10,7 +10,7 @@ The update log below is very important and you are encouraged to read them befor
 
 I have read the official code and find the primary difference between my implementation and the original ones is the sampling methods. It turns out that the Context-Aware Sampling will sample every lesion voxel into points and add up other random sampling points to get a total number of 365000 points. I have already changed my code to such sampling method and achieved a 0.81 DSC rn. The experiment is still running so the final result may be even better.
 
-However by doing so it is just impossible to make it trainable on a 11G GTX 1080Ti, so I changed to use an Tesla A4000 instead. The memory cost during training is 15440M, which indicates that **you have to use a grahical cards with >=16G memory** instead. Adam8Bit is abandoned now since it doesnt help too much under this circumstances.
+However by doing so it is just impossible to make it trainable on a 11G GTX 1080Ti, so I changed to use an RTX A4000 instead. The memory cost during training is 15440M, which indicates that **you have to use a grahical cards with >=16G memory** instead. Adam8Bit is abandoned now since it doesnt help too much under this circumstances.
 
 Besides there are also some other changes:
 - i add a erosion step after the infaltion to eliminate some segmentation noise.
