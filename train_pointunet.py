@@ -1,3 +1,4 @@
+from torch.nn.modules.activation import Softmax
 from model.PointUnet import RandLANet
 from dataset.PCDataset3D import PCDataset3D
 import torch as pt
@@ -5,7 +6,7 @@ import numpy as np
 import cv2
 from loss.DiceLoss import DiceLoss
 from config import config
-from medpy.metric import dc
+from medpy.metric import dc,hd95,jc
 
 lr=0.0001
 d_in=4
@@ -31,7 +32,7 @@ test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_las
 # val_dataset=[]
 device = pt.device('cuda:0' if pt.cuda.is_available() else 'cpu')
 model=RandLANet(d_in=d_in,num_classes=2,device=device)
-# model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
+model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
 
 lossfunc_sr=pt.nn.MSELoss()
 lossfunc_seg=pt.nn.CrossEntropyLoss()
@@ -131,7 +132,8 @@ def erode3d(image,kernel=np.ones((3, 3), np.uint8)):
 def TestModel():
     model.eval()
     dice_sum=0
-    
+    hd_sum=0
+    jc_sum=0
     for i,data in enumerate(test_dataset):
 
         (inputs,labels,originLable)=data   # use raw label_sr as input
@@ -163,10 +165,11 @@ def TestModel():
             pred=output_list[z]
             coord=input_list[z,:3].tolist()
 
-            finalMask[int(coord[0]*128),int(coord[1]*192),int(coord[2]*192)]=pred
+            finalMask[round(coord[0]*128),round(coord[1]*192),round(coord[2]*192)]=pred
 
-        finalMask=dilate3d(finalMask)
+        # finalMask=dilate3d(finalMask)
         finalMask=erode3d(finalMask)
+        finalMask=dilate3d(finalMask)
         cv2.imwrite('finalMask.png',finalMask[64,:,:]*255)
         # for a in range(finalMask.shape[0]):
         #     for b in range(finalMask.shape[1]):
@@ -187,11 +190,21 @@ def TestModel():
         dice_sum += dice
         print("dice:",dice)
 
-        output_list=[]
-        label_list=[]
+        try:
+            hausdorff = hd95(finalMask,originLable)
+        except:
+            hausdorff = 0
+        jaccard = jc(finalMask,originLable)
 
-    print("Finished. Total dice: ",dice_sum/len(test_dataset),'\n')
-    return dice_sum/len(test_dataset)
+        print("dice:", dice, ";hd95:", hausdorff, ";jaccard:", jaccard)
+
+        hd_sum += hausdorff
+        jc_sum += jaccard
+
+    print("Finished. Total dice: ", dice_sum / len(test_dataset), '\n')
+    print("Finished. Avg Jaccard: ", jc_sum / len(test_dataset))
+    print("Finished. Avg hausdorff: ", hd_sum / len(test_dataset))
+    return dice_sum / len(test_dataset)
 
 
 # best_dice_sum=0
@@ -209,7 +222,7 @@ def TestModel():
 #     optimizer = pt.optim.Adam(model.parameters(), lr=lr)
 #     scheduler=pt.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='min',patience=20)
 #     # scheduler = pt.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
-# TestModel()
+TestModel()
 best_dice=0
 for x in range(epoch):
     model.train()
@@ -221,8 +234,8 @@ for x in range(epoch):
         optimizer.zero_grad()
         image1 = pt.autograd.Variable(image[:,:182500,:]).type(pt.FloatTensor).to(device)
         labels1 = pt.autograd.Variable(labels[:,:182500]).type(pt.LongTensor).to(device)
-        outputs_seg = model(image1).squeeze(1)
-        loss_seg = lossfunc_seg(outputs_seg, labels1)+lossfunc_dice(outputs_seg,labels1)
+        outputs_seg = model(image1)
+        loss_seg = lossfunc_seg(outputs_seg, labels1)+lossfunc_dice(outputs_seg,labels1,softmax=True)
 
         loss_seg.backward()
         optimizer.step()
@@ -230,8 +243,8 @@ for x in range(epoch):
         optimizer.zero_grad()
         image2 = pt.autograd.Variable(image[:,182500:,:]).type(pt.FloatTensor).to(device)
         labels2 = pt.autograd.Variable(labels[:,182500:]).type(pt.LongTensor).to(device)
-        outputs_seg = model(image2).squeeze(1)
-        loss_seg = lossfunc_seg(outputs_seg, labels2)+lossfunc_dice(outputs_seg,labels2)
+        outputs_seg = model(image2)
+        loss_seg = lossfunc_seg(outputs_seg, labels2)+lossfunc_dice(outputs_seg,labels2,softmax=True)
 
         loss_seg.backward()
         optimizer.step()
@@ -250,10 +263,10 @@ for x in range(epoch):
             #     pred=outputs_seg[z]
             #     coord=image.squeeze(0).cpu().data.numpy()[z,:3].tolist()
 
-            #     finalMask[int(coord[0]*128),int(coord[1]*192),int(coord[2]*192)]=pred
+            #     finalMask[round(coord[0]*128),round(coord[1]*192),round(coord[2]*192)]=pred
             # finalMask=dilate3d(finalMask)
             # finalMask=erode3d(finalMask)
-            print('[epoch {:3d},iter {:5d}]'.format(x,i),'loss:',loss_seg.item())
+            print('[epoch {:3d},iter {:5d}]'.format(x,i),'loss:',loss_seg.item(),'dice loss:',lossfunc_dice(outputs_seg,labels2,softmax=True).item())
             # cv2.imwrite('image.png',image.cpu().data.numpy()[0,0,image.shape[2]//2,:,:]*255)
             # cv2.imwrite('mask.png',labels.cpu().data.numpy()[0,0,image.shape[2]//2,:,:]*255)
         #     final_img[:,0:size]=outputs_seg.cpu().data.numpy()[0,0,crop_size[0],:,:]*255
