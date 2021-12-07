@@ -12,6 +12,8 @@ Since i updated the pretrained weights and i plan to conduct further finetuning 
 
 I also added a full_process_test.py to compute the overall time comsuption of Point-Unet. Please note that the newly added liver dataset is not publicly availablely right now but will be released by us later. You can just ignore these liver-related files at this moment.
 
+A new pretrained weights has also been directly added to this repo, since there may be inconvenience of using Google Drive.
+
 ## Update 2021/12/6
 
 I have read the official code and find the primary difference between my implementation and the original ones is the sampling methods. It turns out that the Context-Aware Sampling will sample every lesion voxel into points and add up other random sampling points to get a total number of 365000 points. I have already changed my code to such sampling method and achieved a 0.81 DSC rn. The experiment is still running so the final result may be even better.
