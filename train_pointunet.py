@@ -1,18 +1,15 @@
-from torch.nn.modules.loss import BCELoss
 from model.PointUnet import RandLANet
 from dataset.PCDataset3D import PCDataset3D
 import torch as pt
-import bitsandbytes as bnb
 import numpy as np
 import cv2
-from loss.DiceLoss import BinaryDiceLoss
+from loss.DiceLoss import DiceLoss
 from config import config
 from medpy.metric import dc
-# pt.backends.cudnn.benchmark = False
 
 lr=0.0001
 d_in=4
-epoch=500
+epoch=80
 batch_size=1
 model_path='/newdata/why/Saved_models'
 
@@ -22,9 +19,9 @@ model_path='/newdata/why/Saved_models'
 trainset=PCDataset3D('/newdata/why/BraTS20/',mode='train',augment=False)
 testset=PCDataset3D('/newdata/why/BraTS20/',mode='test')
 
-train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=False,drop_last=True)
+train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=True,drop_last=True)
 # val_dataset=pt.utils.data.DataLoader(valset,batch_size=1,shuffle=True,drop_last=True)
-test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=False,drop_last=True)
+test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_last=True)
 
 # train_dataset=pt.utils.data.DataLoader(trainset,batch_size=batch_size,shuffle=True,drop_last=True)
 # test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_last=True)
@@ -33,15 +30,14 @@ test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=False,drop_la
 # train_dataset=[]
 # val_dataset=[]
 device = pt.device('cuda:0' if pt.cuda.is_available() else 'cpu')
-model=RandLANet(d_in=d_in,num_classes=1,device=device).to(device)
-model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
+model=RandLANet(d_in=d_in,num_classes=2,device=device)
+# model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
 
 lossfunc_sr=pt.nn.MSELoss()
-# lossfunc_seg=pt.nn.CrossEntropyLoss()
-lossfunc_dice=BinaryDiceLoss()
-lossfunc_seg=BCELoss()
+lossfunc_seg=pt.nn.CrossEntropyLoss()
+lossfunc_dice=DiceLoss(2)
 # lossfunc_fa=FALoss3D()
-optimizer = bnb.optim.Adam8bit(model.parameters(), lr=lr)
+optimizer = pt.optim.Adam(model.parameters(), lr=lr)
 # scheduler = pt.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
 scheduler=pt.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',patience=10)
 
@@ -116,6 +112,7 @@ def dilate3d(image,kernel=np.ones((3, 3), np.uint8)):
     final_img[final_img>1]=1
     return final_img
 
+
 def erode3d(image,kernel=np.ones((3, 3), np.uint8)):
     z_image=image.copy()
     x_image=image.copy()
@@ -130,6 +127,7 @@ def erode3d(image,kernel=np.ones((3, 3), np.uint8)):
     final_img[final_img!=0]=1
     return final_img
 
+
 def TestModel():
     model.eval()
     dice_sum=0
@@ -142,11 +140,11 @@ def TestModel():
         inputs3D = pt.autograd.Variable(inputs).type(pt.FloatTensor).to(device)
         with pt.no_grad():
             outputs3D = model(inputs3D)
-        # outputs3D=np.argmax(outputs3D.squeeze(0).cpu().data.numpy(),axis=0)
+        outputs3D=np.argmax(outputs3D.squeeze(0).cpu().data.numpy(),axis=0)
         # outputs3D=ndimage.interpolation.zoom(outputs3D,[1,1,2,2,2],order=3)
-        outputs3D[outputs3D<0.5]=0
-        outputs3D[outputs3D>=0.5]=1
-        output_list=outputs3D.squeeze(0).squeeze(0).cpu().data.numpy()
+        # outputs3D[outputs3D<0.5]=0
+        # outputs3D[outputs3D>=0.5]=1
+        output_list=outputs3D
 
         label_list=np.array(labels3D.cpu().data.numpy())
         output_list=np.array(output_list)
@@ -165,7 +163,7 @@ def TestModel():
             pred=output_list[z]
             coord=input_list[z,:3].tolist()
 
-            finalMask[int(coord[0]),int(coord[1]),int(coord[2])]=pred
+            finalMask[int(coord[0]*128),int(coord[1]*192),int(coord[2]*192)]=pred
 
         finalMask=dilate3d(finalMask)
         finalMask=erode3d(finalMask)
@@ -221,10 +219,19 @@ for x in range(epoch):
     for i,data in enumerate(train_dataset):
         (image,labels,originLable)=data
         optimizer.zero_grad()
-        image = pt.autograd.Variable(image).type(pt.FloatTensor).to(device)
-        labels = pt.autograd.Variable(labels).type(pt.FloatTensor).to(device)
-        outputs_seg = model(image).squeeze(1)
-        loss_seg = lossfunc_seg(outputs_seg, labels)+lossfunc_dice(outputs_seg,labels)
+        image1 = pt.autograd.Variable(image[:,:182500,:]).type(pt.FloatTensor).to(device)
+        labels1 = pt.autograd.Variable(labels[:,:182500]).type(pt.LongTensor).to(device)
+        outputs_seg = model(image1).squeeze(1)
+        loss_seg = lossfunc_seg(outputs_seg, labels1)+lossfunc_dice(outputs_seg,labels1)
+
+        loss_seg.backward()
+        optimizer.step()
+
+        optimizer.zero_grad()
+        image2 = pt.autograd.Variable(image[:,182500:,:]).type(pt.FloatTensor).to(device)
+        labels2 = pt.autograd.Variable(labels[:,182500:]).type(pt.LongTensor).to(device)
+        outputs_seg = model(image2).squeeze(1)
+        loss_seg = lossfunc_seg(outputs_seg, labels2)+lossfunc_dice(outputs_seg,labels2)
 
         loss_seg.backward()
         optimizer.step()
@@ -233,18 +240,20 @@ for x in range(epoch):
 
         if i%10==0:
         #     final_img=np.zeros(shape=(size,size*3))
-            
-            originLable=originLable.squeeze(0).numpy()
-            finalMask=np.zeros(originLable.shape)
-            outputs_seg=outputs_seg.squeeze(0).squeeze(0).cpu().data.numpy()
-            outputs_seg[outputs_seg<0.5]=0
-            outputs_seg[outputs_seg>=0.5]=1
-            for z in range(outputs_seg.shape[0]):
-                pred=outputs_seg[z]
-                coord=image.squeeze(0).cpu().data.numpy()[z,:3].tolist()
+            # MSE only
+            # originLable=originLable.squeeze(0).numpy()
+            # finalMask=np.zeros(originLable.shape)
+            # outputs_seg=outputs_seg.squeeze(0).squeeze(0).cpu().data.numpy()
+            # outputs_seg[outputs_seg<0.5]=0
+            # outputs_seg[outputs_seg>=0.5]=1
+            # for z in range(outputs_seg.shape[0]):
+            #     pred=outputs_seg[z]
+            #     coord=image.squeeze(0).cpu().data.numpy()[z,:3].tolist()
 
-                finalMask[int(coord[0]),int(coord[1]),int(coord[2])]=pred
-            print('[epoch {:3d},iter {:5d}]'.format(x,i),'loss:',loss_seg.item(),'dice:',dc(finalMask,originLable))
+            #     finalMask[int(coord[0]*128),int(coord[1]*192),int(coord[2]*192)]=pred
+            # finalMask=dilate3d(finalMask)
+            # finalMask=erode3d(finalMask)
+            print('[epoch {:3d},iter {:5d}]'.format(x,i),'loss:',loss_seg.item())
             # cv2.imwrite('image.png',image.cpu().data.numpy()[0,0,image.shape[2]//2,:,:]*255)
             # cv2.imwrite('mask.png',labels.cpu().data.numpy()[0,0,image.shape[2]//2,:,:]*255)
         #     final_img[:,0:size]=outputs_seg.cpu().data.numpy()[0,0,crop_size[0],:,:]*255
@@ -257,7 +266,7 @@ for x in range(epoch):
     # scheduler.step()
 
     print('==>End of epoch',x,'==>\n')
-    pt.save(model.state_dict(), model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs'+str(batch_size)+'_last.pt')
+
     print('===VAL===>')
     dice=TestModel()
     scheduler.step(dice)

@@ -38,15 +38,15 @@ class PointUnet(nn.Module):
             SharedMLP(1024, 256, **decoder_kwargs),
             SharedMLP(512, 128, **decoder_kwargs),
             SharedMLP(256, 32, **decoder_kwargs),
-            SharedMLP(64, 32, **decoder_kwargs)
+            SharedMLP(64, 8, **decoder_kwargs)
         ])
 
         # final semantic prediction
         self.fc_end = nn.Sequential(
-            SharedMLP(32, 16, bn=True, activation_fn=nn.ReLU()),
-            SharedMLP(16, 8, bn=True, activation_fn=nn.ReLU()),
+            SharedMLP(8, 64, bn=True, activation_fn=nn.ReLU()),
+            SharedMLP(64, 32, bn=True, activation_fn=nn.ReLU()),
             nn.Dropout(),
-            SharedMLP(8, num_classes)
+            SharedMLP(32, num_classes)
         )
         self.device = device
 
@@ -80,27 +80,12 @@ class PointUnet(nn.Module):
         coords = coords[:,permutation]
         x = x[:,:,permutation]
 
-    
-        # at iteration i, x.shape = (B, N//(d**i), d_in)
-        x1 = self.encoder[0](coords[:,:N//decimation_ratio], x)
-        x_stack.append(x1.clone())
-        decimation_ratio *= d
-        x2 = x1[:,:,:N//decimation_ratio]
-
-        x2 = self.encoder[1](coords[:,:N//decimation_ratio], x2)
-        x_stack.append(x2.clone())
-        decimation_ratio *= d
-        x3 = x2[:,:,:N//decimation_ratio]
-
-        x3 = self.encoder[2](coords[:,:N//decimation_ratio], x3)
-        x_stack.append(x3.clone())
-        decimation_ratio *= d
-        x4 = x3[:,:,:N//decimation_ratio]
-
-        x4 = self.encoder[3](coords[:,:N//decimation_ratio], x4)
-        x_stack.append(x4.clone())
-        decimation_ratio *= d
-        x = x4[:,:,:N//decimation_ratio]
+        for lfa in self.encoder:
+            # at iteration i, x.shape = (B, N//(d**i), d_in)
+            x = lfa(coords[:,:N//decimation_ratio], x)
+            x_stack.append(x.clone())
+            decimation_ratio *= d
+            x = x[:,:,:N//decimation_ratio]
 
 
         # # >>>>>>>>>> ENCODER
@@ -132,7 +117,7 @@ class PointUnet(nn.Module):
 
         scores = self.fc_end(x)
 
-        return nn.Sigmoid()(scores.squeeze(-1))
+        return scores.squeeze(-1)
 
 
 class SharedMLP(nn.Module):
@@ -246,7 +231,7 @@ class AttentivePooling(nn.Module):
             torch.Tensor, shape (B, d_out, N, 1)
         """
         # computing attention scores
-        scores = self.score_fn(x.permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous()
+        scores = self.score_fn(x.permute(0,2,3,1)).permute(0,3,1,2)
 
         # sum over the neighbors
         features = torch.sum(scores * x, dim=-1, keepdim=True) # shape (B, d_in, N, 1)
@@ -331,15 +316,15 @@ class RandLANet(nn.Module):
             SharedMLP(1024, 256, **decoder_kwargs),
             SharedMLP(512, 128, **decoder_kwargs),
             SharedMLP(256, 32, **decoder_kwargs),
-            SharedMLP(64, 32, **decoder_kwargs)
+            SharedMLP(64, 8, **decoder_kwargs)
         ])
 
         # final semantic prediction
         self.fc_end = nn.Sequential(
-            SharedMLP(32, 16, bn=True, activation_fn=nn.ReLU()),
-            SharedMLP(16, 8, bn=True, activation_fn=nn.ReLU()),
+            SharedMLP(8, 64, bn=True, activation_fn=nn.ReLU()),
+            SharedMLP(64, 32, bn=True, activation_fn=nn.ReLU()),
             nn.Dropout(),
-            SharedMLP(8, num_classes)
+            SharedMLP(32, num_classes)
         )
         self.device = device
 
@@ -410,7 +395,7 @@ class RandLANet(nn.Module):
 
         scores = self.fc_end(x)
 
-        return nn.Sigmoid()(scores.squeeze(-1))
+        return scores.squeeze(-1)
 
 
 if __name__ == '__main__':

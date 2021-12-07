@@ -41,7 +41,7 @@ class BinaryDiceLoss(nn.Module):
             raise Exception('Unexpected reduction {}'.format(self.reduction))
 
 class DiceLoss(nn.Module):
-    def __init__(self, n_classes=1):
+    def __init__(self, n_classes=2):
         super(DiceLoss, self).__init__()
         self.n_classes = n_classes
 

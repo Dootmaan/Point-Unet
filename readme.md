@@ -6,6 +6,12 @@ This implementation conducts WT segmentation with T2 input by default, which is 
 
 The update log below is very important and you are encouraged to read them before using the code.
 
+## Update 2021/12/7
+
+Since i updated the pretrained weights and i plan to conduct further finetuning based on it. I changed the training process to backward a sample separately to make it trainable on GTX 1080Ti and switch back to use CrossEntropy instead of BCE loss. 
+
+I also added a full_process_test.py to compute the overall time comsuption of Point-Unet. Please note that the newly added liver dataset is not publicly availablely right now but will be released by us later. You can just ignore these liver-related files at this moment.
+
 ## Update 2021/12/6
 
 I have read the official code and find the primary difference between my implementation and the original ones is the sampling methods. It turns out that the Context-Aware Sampling will sample every lesion voxel into points and add up other random sampling points to get a total number of 365000 points. I have already changed my code to such sampling method and achieved a 0.81 DSC rn. The experiment is still running so the final result may be even better.
