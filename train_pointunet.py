@@ -32,7 +32,7 @@ test_dataset=pt.utils.data.DataLoader(testset,batch_size=1,shuffle=True,drop_las
 # val_dataset=[]
 device = pt.device('cuda:0' if pt.cuda.is_available() else 'cpu')
 model=RandLANet(d_in=d_in,num_classes=2,device=device)
-model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best.pt',map_location = 'cpu'))
+model.load_state_dict(pt.load(model_path+'/PointUnet/PointUNet_3D_BraTS_patch-free_bs1_best_0.8153.pt',map_location = 'cpu'))
 
 lossfunc_sr=pt.nn.MSELoss()
 lossfunc_seg=pt.nn.CrossEntropyLoss()
@@ -188,7 +188,7 @@ def TestModel():
         pr_gt_sum = np.sum(finalMask[originLable == 1])
         dice = 2 * pr_gt_sum / (pr_sum + gt_sum)
         dice_sum += dice
-        print("dice:",dice)
+        # print("dice:",dice)
 
         try:
             hausdorff = hd95(finalMask,originLable)

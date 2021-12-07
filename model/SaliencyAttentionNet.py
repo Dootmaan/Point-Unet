@@ -222,45 +222,23 @@ class SaliencyAttentionNet(nn.Module):
 
         return nn.Sigmoid()(c10)
 
+if __name__=="__main__":
+    from thop import clever_format
+    from thop import profile
+    model=SaliencyAttentionNet()
+    inputx=torch.randn(1, 1, 1,128,192, 192)
+    
+    flops, params = profile(model, inputs=inputx)
+    flops, params = clever_format([flops, params], "%.3f")
+    print(flops,params)
 
-class UNet(nn.Module):
-    def __init__(self, in_ch=1):
-        super(UNet, self).__init__()
-        self.conv1 = DoubleConv(in_ch, 16)
-        self.pool1 = nn.MaxPool3d(2)
-        self.conv2 = DoubleConv(16, 32)
-        self.pool2 = nn.MaxPool3d(2)
-        self.conv3 = DoubleConv(32, 32)
-        self.pool3 = nn.MaxPool3d(2)
-        self.conv4 = DoubleConv(32, 32)
+    # Find total parameters and trainable parameters
+    total_params = sum(p.numel() for p in model.parameters())
 
-        self.up5 = nn.ConvTranspose3d(32, 32, 2, stride=2)
-        self.conv5 = DoubleConv(64, 32)
-        self.up6 = nn.ConvTranspose3d(32, 32, 2, stride=2)
-        self.conv6 = DoubleConv(64, 32)
-        self.up7 = nn.ConvTranspose3d(32, 16, 2, stride=2)
-        self.conv7 = DoubleConv(32, 16)
-        self.conv8 = DoubleConv(16, 1)
-
-    def forward(self, x):
-        c1 = self.conv1(x)
-        p1 = self.pool1(c1)
-        c2 = self.conv2(p1)
-        p2 = self.pool2(c2)
-        c3 = self.conv3(p2)
-        p3 = self.pool3(c3)
-        c4 = self.conv4(p3)
-
-        c4u = self.up5(c4)
-        c5 = self.conv5(torch.cat((c4u, c3), dim=1))
-        c5u = self.up6(c5)
-        c6 = self.conv6(torch.cat((c5u, c2), dim=1))
-        c6u = self.up7(c6)
-        c7 = self.conv7(torch.cat((c6u, c1), dim=1))
-        c8 = self.conv8(c7)
-
-        return nn.Sigmoid()(c8)
-
+    print(total_params, 'total parameters.')
+    total_trainable_params = sum(
+        p.numel() for p in model.parameters() if p.requires_grad)
+    print(total_trainable_params,'training parameters.')
 
 # class DecoderWithAttention(nn.Module):
 #     """
