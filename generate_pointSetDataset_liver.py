@@ -5,7 +5,7 @@ from config import config
 from dataset.MVILiverDataset3D import MVILiverDataset3D
 from model.SaliencyAttentionNet import SaliencyAttentionNet
 
-total_num_points=365000
+total_num_points=800000
 threshold=0.5
 
 batch_size = 1
@@ -31,6 +31,7 @@ def contextAwareSamplingTrain(image, label):
 
     none_tumor = list(np.where(pointSet_label == 0)[0])
     tumor = list(np.where(pointSet_label > 0)[0])
+    print(len(tumor))
     queried_idx = tumor + random.sample(none_tumor, k=total_num_points - len(tumor))
     queried_idx = np.array(queried_idx)
     random.shuffle(queried_idx)

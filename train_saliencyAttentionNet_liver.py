@@ -11,7 +11,7 @@ from scipy import ndimage
 from loss.DiceLoss import BinaryDiceLoss
 import time
 
-lr = 0.0001
+lr = 0.00001
 epoch = 100
 batch_size = 1
 model_path = '/newdata/why/Saved_models'
@@ -38,10 +38,10 @@ test_dataset = pt.utils.data.DataLoader(testset,
                                         drop_last=True)
 
 model = SaliencyAttentionNet(in_ch=1).cuda()
-# model.load_state_dict(
-#     pt.load(model_path +
-#             '/PointUnet/SaliencyAttentionNet_3D_Liver_patch-free_bs1_best.pt',
-#             map_location='cpu'))
+model.load_state_dict(
+    pt.load(model_path +
+            '/PointUnet/SaliencyAttentionNet_3D_Liver_patch-free_bs1_best.pt',
+            map_location='cpu'))
 
 # lossfunc_sr=pt.nn.MSELoss()
 lossfunc_seg = pt.nn.BCELoss()

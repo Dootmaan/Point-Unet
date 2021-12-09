@@ -33,7 +33,7 @@ class MVILiverDataset3D(torch.utils.data.Dataset):
         # random.shuffle(bundle)
         # images[:], labels[:] = zip(*bundle)
 
-        train_frac, val_frac, test_frac = 0.6, 0.2, 0.2
+        train_frac, val_frac, test_frac = 0.8, 0.0, 0.2
         n_train = int(train_frac * len(images)) + 1
         n_val = int(val_frac * len(images)) + 1
         n_test = min(len(images) - n_train - n_val, int(test_frac * len(images)))
